@@ -27,21 +27,29 @@ namespace GPlayEdge
 		public MainWindow()
 		{
 			InitializeComponent();
+			GPlayWebView.Navigate(new Uri("https://play.google.com/music"));
 		}
 
 		private void GPlayWebView_ScriptNotify(object sender, WebViewControlScriptNotifyEventArgs e)
 		{
-
+			MessageBox.Show(e.Value, e.Uri?.ToString() ?? string.Empty);
 		}
 
 		private void GPlayWebView_NavigationCompleted(object sender, WebViewControlNavigationCompletedEventArgs e)
 		{
-
+			if (!e.IsSuccess)
+				MessageBox.Show($"Navigation to {e.Uri?.ToString() ?? "NULL"}", $"Error: {e.WebErrorStatus}", MessageBoxButton.OK, MessageBoxImage.Error);
 		}
 
 		private void GPlayWebView_PermissionRequested(object sender, WebViewControlPermissionRequestedEventArgs e)
 		{
+			if (e.PermissionRequest.State == WebViewControlPermissionState.Allow) return;
 
+			string message = $"{e.PermissionRequest.Uri.Host} is requesting access to {e.PermissionRequest.PermissionType}";
+			if (e.PermissionRequest.State == WebViewControlPermissionState.Defer)
+				GPlayWebView.GetDeferredPermissionRequestById(e.PermissionRequest.Id)?.Allow();
+			else
+				e.PermissionRequest.Allow();
 		}
 
 		private void GPlayWebView_DOMContentLoaded(object sender, WebViewControlDOMContentLoadedEventArgs e)

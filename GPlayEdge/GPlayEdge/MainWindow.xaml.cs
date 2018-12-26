@@ -1,21 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using System.IO;
-using System.Windows.Threading;
+﻿using MahApps.Metro.Controls;
 using Microsoft.Toolkit.Win32.UI.Controls.Interop.WinRT;
-using MahApps.Metro.Controls;
+using System;
+using System.Windows;
 
 namespace GPlayEdge
 {
@@ -24,6 +10,7 @@ namespace GPlayEdge
 	/// </summary>
 	public partial class MainWindow : MetroWindow
 	{
+		private string CustomStyle;
 		public MainWindow()
 		{
 			InitializeComponent();
@@ -44,8 +31,6 @@ namespace GPlayEdge
 		private void GPlayWebView_PermissionRequested(object sender, WebViewControlPermissionRequestedEventArgs e)
 		{
 			if (e.PermissionRequest.State == WebViewControlPermissionState.Allow) return;
-
-			string message = $"{e.PermissionRequest.Uri.Host} is requesting access to {e.PermissionRequest.PermissionType}";
 			if (e.PermissionRequest.State == WebViewControlPermissionState.Defer)
 				GPlayWebView.GetDeferredPermissionRequestById(e.PermissionRequest.Id)?.Allow();
 			else
@@ -54,7 +39,15 @@ namespace GPlayEdge
 
 		private void GPlayWebView_DOMContentLoaded(object sender, WebViewControlDOMContentLoadedEventArgs e)
 		{
-
+			string CustomCSSScript = "(function(){" +
+				"var style=document.getElementById('gmusic_custom_css');" +
+				"if(!style){ style = document.createElement('STYLE');" +
+				"style.type='text/css';" +
+				"style.id='gmusic_custom_css'; " +
+				"style.innerText = \"" + CustomStyle + "\";" +
+				"document.getElementsByTagName('HEAD')[0].appendChild(style);" +
+				"} } )()";
+			GPlayWebView.InvokeScriptAsync("eval", new string[] { CustomCSSScript });
 		}
 	}
 }

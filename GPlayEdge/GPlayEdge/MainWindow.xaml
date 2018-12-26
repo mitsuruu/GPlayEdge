@@ -9,6 +9,17 @@
 					  mc:Ignorable="d"
 					  Title="MainWindow" Height="650" Width="1200">
     <Grid>
-        
-    </Grid>
+		<WPF:WebView x:Name="GPlayWebView"
+					 IsIndexedDBEnabled="True"
+					 IsJavaScriptEnabled="True"
+					 IsPrivateNetworkClientServerCapabilityEnabled="True"
+					 IsScriptNotifyAllowed="True"
+					 Source="about:blank"
+					 ScriptNotify="GPlayWebView_ScriptNotify"
+					 NavigationCompleted="GPlayWebView_NavigationCompleted"
+					 PermissionRequested="GPlayWebView_PermissionRequested"
+					 DOMContentLoaded="GPlayWebView_DOMContentLoaded"
+					 Margin="0,0,0,0"/>
+
+	</Grid>
 </Controls:MetroWindow>

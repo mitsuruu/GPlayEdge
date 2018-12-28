@@ -33,11 +33,7 @@ namespace GPlayEdge
 		{
 			if (!e.IsSuccess)
 				MessageBox.Show($"Navigation to {e.Uri?.ToString() ?? "NULL"}", $"Error: {e.WebErrorStatus}", MessageBoxButton.OK, MessageBoxImage.Error);
-
-			// Get song name (if possible)
-			/*string songName = GPlayWebView.InvokeScript("eval", new string[] { "document.getElementById('action-bar-no-thanks-button').innerText" });
-			UpdatePresence(client, GPlayWebView.DocumentTitle, songName, true);*/
-			// TODO: Get song name and artist name from web page
+			Update();
 		}
 
 		private void GPlayWebView_PermissionRequested(object sender, WebViewControlPermissionRequestedEventArgs e)
@@ -68,6 +64,22 @@ namespace GPlayEdge
 		}
 
 		#region DiscordRPC
+		async void Update()
+		{
+			// Get song name (if possible)
+			try
+			{
+				string songName = await GPlayWebView.InvokeScriptAsync("eval", new string[] { "document.getElementById('currently-playing-title').innerText" });
+				string artist = await GPlayWebView.InvokeScriptAsync("eval", new string[] { "document.getElementById('player-artist').innerText" });
+				Title = $"{songName} - Google Play Music";
+				UpdatePresence(client, songName, artist, true);
+			}
+			catch
+			{
+				Title = $"Nothing - Google Play Music";
+			}
+		}
+
 		static void Initialize(DiscordRpcClient client)
 		{
 			client.Logger = new FileLogger("discord-rpc.log") { Level = LogLevel.Warning };
@@ -88,7 +100,7 @@ namespace GPlayEdge
 				}
 			};
 
-			var timer = new System.Timers.Timer(150);
+			var timer = new System.Timers.Timer(3000);
 			timer.Elapsed += (sender, evt) =>
 			{
 				client.Invoke();

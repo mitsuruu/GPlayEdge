@@ -1,4 +1,6 @@
-﻿using MahApps.Metro.Controls;
+﻿using DiscordRPC;
+using DiscordRPC.Logging;
+using MahApps.Metro.Controls;
 using Microsoft.Toolkit.Win32.UI.Controls.Interop.WinRT;
 using System;
 using System.Windows;
@@ -11,10 +13,15 @@ namespace GPlayEdge
 	public partial class MainWindow : MetroWindow
 	{
 		private string CustomStyle;
+		private static int DiscordPipe = -1;
+		private static string ClientID = "528170989016711169";
+		private static DiscordRpcClient client = new DiscordRpcClient(ClientID, true, DiscordPipe);
+
 		public MainWindow()
 		{
 			InitializeComponent();
-			GPlayWebView.Navigate(new Uri("https://play.google.com/music"));
+			GPlayWebView.Navigate(new Uri("https://play.google.com/music/"));
+			Initialize(client);
 		}
 
 		private void GPlayWebView_ScriptNotify(object sender, WebViewControlScriptNotifyEventArgs e)
@@ -26,6 +33,11 @@ namespace GPlayEdge
 		{
 			if (!e.IsSuccess)
 				MessageBox.Show($"Navigation to {e.Uri?.ToString() ?? "NULL"}", $"Error: {e.WebErrorStatus}", MessageBoxButton.OK, MessageBoxImage.Error);
+
+			// Get song name (if possible)
+			/*string songName = GPlayWebView.InvokeScript("eval", new string[] { "document.getElementById('action-bar-no-thanks-button').innerText" });
+			UpdatePresence(client, GPlayWebView.DocumentTitle, songName, true);*/
+			// TODO: Get song name and artist name from web page
 		}
 
 		private void GPlayWebView_PermissionRequested(object sender, WebViewControlPermissionRequestedEventArgs e)
@@ -49,5 +61,91 @@ namespace GPlayEdge
 				"} } )()";
 			GPlayWebView.InvokeScriptAsync("eval", new string[] { CustomCSSScript });
 		}
+
+		private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+		{
+			Dispose();
+		}
+
+		#region DiscordRPC
+		static void Initialize(DiscordRpcClient client)
+		{
+			client.Logger = new FileLogger("discord-rpc.log") { Level = LogLevel.Warning };
+
+			client.OnReady += (sender, msg) =>
+			{
+				using (System.IO.StreamWriter sw = System.IO.File.AppendText("discord-rpc.log"))
+				{
+					sw.WriteLine($"Connected to Discord with user {msg.User.Username}");
+				}
+			};
+
+			client.OnPresenceUpdate += (sender, msg) =>
+			{
+				using (System.IO.StreamWriter sw = System.IO.File.AppendText("discord-rpc.log"))
+				{
+					sw.WriteLine("Presence has been updated");
+				}
+			};
+
+			var timer = new System.Timers.Timer(150);
+			timer.Elapsed += (sender, evt) =>
+			{
+				client.Invoke();
+			};
+			timer.Start();
+
+			client.Initialize();
+			client.SetPresence(new RichPresence()
+			{
+				Details = $"Listening to nothing",
+				Timestamps = Timestamps.Now,
+				Assets = new Assets()
+				{
+					LargeImageKey = "google-play-music",
+					LargeImageText = "Google Play Music"
+				}
+			});
+		}
+
+		void UpdatePresence(DiscordRpcClient client, string songName, string artist, bool playing)
+		{
+			if (!playing)
+			{
+				client.SetPresence(new RichPresence()
+				{
+					Details = $"Listening to nothing",
+					Timestamps = Timestamps.Now,
+					Assets = new Assets()
+					{
+						LargeImageKey = "google-play-music",
+						LargeImageText = "Google Play Music"
+					}
+				});
+			}
+			else
+			{
+				client.SetPresence(new RichPresence()
+				{
+					Details = $"Listening to {songName}",
+					State = $"by {artist}",
+					Timestamps = Timestamps.Now,
+					Assets = new Assets()
+					{
+						LargeImageKey = "google-play-music",
+						LargeImageText = "Google Play Music"
+					}
+				});
+			}
+		}
+
+		void Dispose()
+		{
+			var timer = new System.Timers.Timer(150);
+			var client = new DiscordRpcClient(ClientID);
+			timer.Dispose();
+			client.Dispose();
+		}
+		#endregion
 	}
 }

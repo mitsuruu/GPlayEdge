@@ -4,6 +4,7 @@ using MahApps.Metro.Controls;
 using Microsoft.Toolkit.Win32.UI.Controls.Interop.WinRT;
 using System;
 using System.Windows;
+using System.Threading.Tasks;
 
 namespace GPlayEdge
 {
@@ -21,67 +22,8 @@ namespace GPlayEdge
 		{
 			InitializeComponent();
 			GPlayWebView.Navigate(new Uri("https://play.google.com/music/"));
-			Initialize(client);
-		}
 
-		private void GPlayWebView_ScriptNotify(object sender, WebViewControlScriptNotifyEventArgs e)
-		{
-			MessageBox.Show(e.Value, e.Uri?.ToString() ?? string.Empty);
-		}
-
-		private void GPlayWebView_NavigationCompleted(object sender, WebViewControlNavigationCompletedEventArgs e)
-		{
-			if (!e.IsSuccess)
-				MessageBox.Show($"Navigation to {e.Uri?.ToString() ?? "NULL"}", $"Error: {e.WebErrorStatus}", MessageBoxButton.OK, MessageBoxImage.Error);
-			Update();
-		}
-
-		private void GPlayWebView_PermissionRequested(object sender, WebViewControlPermissionRequestedEventArgs e)
-		{
-			if (e.PermissionRequest.State == WebViewControlPermissionState.Allow) return;
-			if (e.PermissionRequest.State == WebViewControlPermissionState.Defer)
-				GPlayWebView.GetDeferredPermissionRequestById(e.PermissionRequest.Id)?.Allow();
-			else
-				e.PermissionRequest.Allow();
-		}
-
-		private void GPlayWebView_DOMContentLoaded(object sender, WebViewControlDOMContentLoadedEventArgs e)
-		{
-			string CustomCSSScript = "(function(){" +
-				"var style=document.getElementById('gmusic_custom_css');" +
-				"if(!style){ style = document.createElement('STYLE');" +
-				"style.type='text/css';" +
-				"style.id='gmusic_custom_css'; " +
-				"style.innerText = \"" + CustomStyle + "\";" +
-				"document.getElementsByTagName('HEAD')[0].appendChild(style);" +
-				"} } )()";
-			GPlayWebView.InvokeScriptAsync("eval", new string[] { CustomCSSScript });
-		}
-
-		private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-		{
-			Dispose();
-		}
-
-		#region DiscordRPC
-		async void Update()
-		{
-			// Get song name (if possible)
-			try
-			{
-				string songName = await GPlayWebView.InvokeScriptAsync("eval", new string[] { "document.getElementById('currently-playing-title').innerText" });
-				string artist = await GPlayWebView.InvokeScriptAsync("eval", new string[] { "document.getElementById('player-artist').innerText" });
-				Title = $"{songName} - Google Play Music";
-				UpdatePresence(client, songName, artist, true);
-			}
-			catch
-			{
-				Title = $"Nothing - Google Play Music";
-			}
-		}
-
-		static void Initialize(DiscordRpcClient client)
-		{
+			#region Initialize RPC
 			client.Logger = new FileLogger("discord-rpc.log") { Level = LogLevel.Warning };
 
 			client.OnReady += (sender, msg) =>
@@ -118,46 +60,96 @@ namespace GPlayEdge
 					LargeImageText = "Google Play Music"
 				}
 			});
+			#endregion
 		}
 
-		void UpdatePresence(DiscordRpcClient client, string songName, string artist, bool playing)
+		private void GPlayWebView_ScriptNotify(object sender, WebViewControlScriptNotifyEventArgs e)
 		{
-			if (!playing)
-			{
-				client.SetPresence(new RichPresence()
-				{
-					Details = $"Listening to nothing",
-					Timestamps = Timestamps.Now,
-					Assets = new Assets()
-					{
-						LargeImageKey = "google-play-music",
-						LargeImageText = "Google Play Music"
-					}
-				});
-			}
+			// Shows messagebox if script notifications are needed
+			MessageBox.Show(e.Value, e.Uri?.ToString() ?? string.Empty);
+		}
+
+		private void GPlayWebView_NavigationCompleted(object sender, WebViewControlNavigationCompletedEventArgs e)
+		{
+			// Display error dialog if navigation fails
+			if (!e.IsSuccess)
+				MessageBox.Show($"Navigation to {e.Uri?.ToString() ?? "NULL"}", $"Error: {e.WebErrorStatus}", MessageBoxButton.OK, MessageBoxImage.Error);
+
+			// Synchronously call Update
+			Update();
+		}
+
+		private void GPlayWebView_PermissionRequested(object sender, WebViewControlPermissionRequestedEventArgs e)
+		{
+			// Permissions
+			if (e.PermissionRequest.State == WebViewControlPermissionState.Allow)
+				return;
+			if (e.PermissionRequest.State == WebViewControlPermissionState.Defer)
+				GPlayWebView.GetDeferredPermissionRequestById(e.PermissionRequest.Id)?.Allow();
 			else
-			{
-				client.SetPresence(new RichPresence()
-				{
-					Details = $"Listening to {songName}",
-					State = $"by {artist}",
-					Timestamps = Timestamps.Now,
-					Assets = new Assets()
-					{
-						LargeImageKey = "google-play-music",
-						LargeImageText = "Google Play Music"
-					}
-				});
-			}
+				e.PermissionRequest.Allow();
 		}
 
-		void Dispose()
+		private void GPlayWebView_DOMContentLoaded(object sender, WebViewControlDOMContentLoadedEventArgs e)
 		{
-			var timer = new System.Timers.Timer(150);
-			var client = new DiscordRpcClient(ClientID);
-			timer.Dispose();
+			// Custom JS function for custom CSS
+			string CustomCSSScript = "(function(){" +
+				"var style=document.getElementById('gmusic_custom_css');" +
+				"if(!style){ style = document.createElement('STYLE');" +
+				"style.type='text/css';" +
+				"style.id='gmusic_custom_css'; " +
+				"style.innerText = \"" + CustomStyle + "\";" +
+				"document.getElementsByTagName('HEAD')[0].appendChild(style);" +
+				"} } )()";
+			// Execute the script asychronously
+			GPlayWebView.InvokeScriptAsync("eval", new string[] { CustomCSSScript });
+		}
+
+		private void MetroWindow_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+		{
+			// Dispose the RPC client
 			client.Dispose();
 		}
-		#endregion
+
+		/// <summary>
+		/// Updates RPC content (DO NOT AWAIT)
+		/// </summary>
+		/// <returns></returns>
+		async Task Update()
+		{
+			while (true)
+			{
+				try
+				{
+					string songName = await GPlayWebView.InvokeScriptAsync("eval", new string[] { "document.getElementById('currently-playing-title').innerText" });
+					string artist = await GPlayWebView.InvokeScriptAsync("eval", new string[] { "document.getElementById('player-artist').innerText" });
+					Title = $"{songName} - Google Play Music";
+					client.SetPresence(new RichPresence()
+					{
+						Details = $"Listening to {songName}",
+						State = $"by {artist}",
+						Assets = new Assets()
+						{
+							LargeImageKey = "google-play-music",
+							LargeImageText = "Google Play Music"
+						}
+					});
+				}
+				catch
+				{
+					Title = $"Google Play Music";
+					client.SetPresence(new RichPresence()
+					{
+						Details = $"Listening to nothing",
+						Assets = new Assets()
+						{
+							LargeImageKey = "google-play-music",
+							LargeImageText = "Google Play Music"
+						}
+					});
+				}
+				await Task.Delay(200);
+			}
+		}
 	}
 }

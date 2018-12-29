@@ -6,5 +6,4 @@ Lightweight Google Play Music client written in C# using Edge WebView
 - [x] Basic custom CSS handling (needs improvement)
 - [x] Changes window title to match current song
 - [x] Discord RPC
-- [ ] Custom CSS templates
-- [ ] In-app options menu
+- [x] Custom CSS templates

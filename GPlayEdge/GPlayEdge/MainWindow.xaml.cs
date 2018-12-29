@@ -3,8 +3,10 @@ using DiscordRPC.Logging;
 using MahApps.Metro.Controls;
 using Microsoft.Toolkit.Win32.UI.Controls.Interop.WinRT;
 using System;
+using System.IO;
 using System.Windows;
 using System.Threading.Tasks;
+using System.Text;
 
 namespace GPlayEdge
 {
@@ -17,11 +19,22 @@ namespace GPlayEdge
 		private static int DiscordPipe = -1;
 		private static string ClientID = "528170989016711169";
 		private static DiscordRpcClient client = new DiscordRpcClient(ClientID, true, DiscordPipe);
+		private static StringBuilder styleBuilder = new StringBuilder();
 
 		public MainWindow()
 		{
 			InitializeComponent();
 			GPlayWebView.Navigate(new Uri("https://play.google.com/music/"));
+
+			if (File.Exists("style.css"))
+			{
+				foreach (var line in File.ReadAllLines("style.css"))
+				{
+					styleBuilder.Append(line);
+				}
+
+				CustomStyle = styleBuilder.ToString();
+			}
 
 			#region Initialize RPC
 			client.Logger = new FileLogger("discord-rpc.log") { Level = LogLevel.Warning };
